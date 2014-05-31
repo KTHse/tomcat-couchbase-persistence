@@ -45,6 +45,15 @@ import com.couchbase.client.protocol.views.ViewDesign;
 import com.couchbase.client.protocol.views.ViewResponse;
 import com.couchbase.client.protocol.views.ViewRow;
 
+/**
+ * This is an implementation of a Apache Tomcat PersistentManager Store that
+ * uses a Couchbase bucket to store sessions in.
+ * 
+ * The PersistentManager only writes idle sessions to the storage back-end, so
+ * it is not a fail-over high-availability solution. However, the manager writes
+ * all sessions to the back-end on shutdown, so it can be used to migrate 
+ * sticky sessions to another server on system maintenance. 
+ */
 public class CouchbasePersistentStore extends StoreBase {
     /* URIs to use to connect to Couchbase servers. */
     private CouchbaseClient couchbaseClient;
@@ -61,12 +70,14 @@ public class CouchbasePersistentStore extends StoreBase {
     /* Password for the bucket if any. */
     private String password = "";
 
+
     /**
      * {@inheritDoc}
      */
     public String getInfo() {
     	return this.getClass().getSimpleName() + "/0.0.0";
     }
+
 
     /**
      * {@inheritDoc}
@@ -77,6 +88,7 @@ public class CouchbasePersistentStore extends StoreBase {
             couchbaseClient.delete(id);
         }
     }
+
 
     /**
      * {@inheritDoc}
@@ -98,6 +110,7 @@ public class CouchbasePersistentStore extends StoreBase {
         }
     }
 
+
     /**
      * {@inheritDoc}
      */
@@ -116,6 +129,7 @@ public class CouchbasePersistentStore extends StoreBase {
         }
         return allKeys.toArray(new String[allKeys.size()]);
     }
+
 
     /**
      * {@inheritDoc}
@@ -136,6 +150,7 @@ public class CouchbasePersistentStore extends StoreBase {
     	return session;
     }
 
+
     /**
      * {@inheritDoc}
      */
@@ -143,6 +158,7 @@ public class CouchbasePersistentStore extends StoreBase {
     	manager.getContainer().getLogger().debug("Remove session with id: " + sessionId);
         couchbaseClient.delete(sessionId);
     }
+
 
     /**
      * {@inheritDoc}
@@ -156,6 +172,7 @@ public class CouchbasePersistentStore extends StoreBase {
         oos.close();
         couchbaseClient.set(session.getId(), bos.toString());
     }
+
 
     /**
      * Start this component and implement the requirements
@@ -176,6 +193,7 @@ public class CouchbasePersistentStore extends StoreBase {
         super.startInternal();
     }
 
+
     /**
      * Stop this component and implement the requirements
      * of {@link org.apache.catalina.util.LifecycleBase#stopInternal()}.
@@ -192,12 +210,14 @@ public class CouchbasePersistentStore extends StoreBase {
         }
     }
 
+
     /**
      * @param bucket the bucket to set
      */
     public void setBucket(String bucket) {
         this.bucket = bucket;
     }
+
 
     /**
      * @param username the username to set
@@ -206,12 +226,14 @@ public class CouchbasePersistentStore extends StoreBase {
         this.username = username;
     }
 
+
     /**
      * @param password the password to set
      */
     public void setPassword(String password) {
         this.password = password;
     }
+
 
     /**
      * @param uris the uris to set
