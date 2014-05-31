@@ -21,7 +21,7 @@ ways. Setting a default Manager that all webapps will pick up can be done
 in context.xml.
 
 $CATALINA_BASE/conf/context.xml
-```
+```xml
     <Manager className="org.apache.catalina.session.PersistentManager"
              maxIdleBackup="1"
              maxIdleSwap="1"
