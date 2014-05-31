@@ -1,6 +1,6 @@
 <!--
 
-   Copyright (C) 2013 KTH, Kungliga tekniska hogskolan, http://www.kth.se
+   Copyright (C) 2014 KTH, Kungliga tekniska hogskolan, http://www.kth.se
 
    This file is part of tomcat-couchbase-persistence.
 
@@ -23,7 +23,7 @@
   <groupId>se.kth.infosys</groupId>
   <artifactId>tomcat-couchbase-persistence</artifactId>
   <packaging>jar</packaging>
-  <version>0.0.0-PRE</version>
+  <version>0.1.0</version>
   
   <properties>
     <tomcat-version>7.0.53</tomcat-version>
@@ -32,13 +32,14 @@
   <build>
     <directory>target</directory>
     <outputDirectory>target/classes</outputDirectory>
-    <finalName>${artifactId}-${version}</finalName>
+    <finalName>${project.artifactId}-${project.version}</finalName>
     <testOutputDirectory>target/test-classes</testOutputDirectory>
     <sourceDirectory>src/main/java</sourceDirectory>
 <!--     <testSourceDirectory>src/test/java</testSourceDirectory> -->
     <resources>
       <resource>
         <directory>src/main/resources</directory>
+        <filtering>true</filtering>
       </resource>
     </resources>
 <!--     <testResources> -->
@@ -77,31 +78,13 @@
     <dependency>
       <groupId>com.couchbase.client</groupId>
       <artifactId>couchbase-client</artifactId>
-      <version>1.2.2</version>
+      <version>1.4.1</version>
     </dependency>
 
     <!-- Tomcat dependencies -->
     <dependency>
-    <groupId>org.apache.tomcat</groupId>
-      <artifactId>tomcat-servlet-api</artifactId>
-      <version>${tomcat-version}</version>
-      <scope>provided</scope>
-    </dependency>
-    <dependency>
       <groupId>org.apache.tomcat</groupId>
       <artifactId>tomcat-catalina</artifactId>
-      <version>${tomcat-version}</version>
-      <scope>provided</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.tomcat</groupId>
-      <artifactId>tomcat-catalina-ha</artifactId>
-      <version>${tomcat-version}</version>
-      <scope>provided</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.tomcat</groupId>
-      <artifactId>tomcat-coyote</artifactId>
       <version>${tomcat-version}</version>
       <scope>provided</scope>
     </dependency>
