@@ -1,7 +1,7 @@
 Release notes
 =============
 
-## Version 0.1.0
+### 0.1.0
 
 * First working version with just a Store implementation.
   It works, but I'm a bit disappointed in what is achievable
