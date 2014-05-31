@@ -30,7 +30,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
-import java.util.logging.Logger;
 
 import org.apache.catalina.LifecycleException;
 import org.apache.catalina.Session;
@@ -47,8 +46,6 @@ import com.couchbase.client.protocol.views.ViewResponse;
 import com.couchbase.client.protocol.views.ViewRow;
 
 public class CouchbasePersistentStore extends StoreBase {
-    private static final Logger logger =  Logger.getLogger(CouchbasePersistentStore.class.getName());
-    
     /* URIs to use to connect to Couchbase servers. */
     private CouchbaseClient couchbaseClient;
 
@@ -75,7 +72,7 @@ public class CouchbasePersistentStore extends StoreBase {
      * {@inheritDoc}
      */
     public void clear() throws IOException {
-    	logger.info("Clearing all sessions");
+    	manager.getContainer().getLogger().debug("Clearing all sessions");
         for (String id : keys()) {
             couchbaseClient.delete(id);
         }
@@ -85,7 +82,7 @@ public class CouchbasePersistentStore extends StoreBase {
      * {@inheritDoc}
      */
     public int getSize() throws IOException {
-    	logger.info("Get number of sessions.");
+    	manager.getContainer().getLogger().debug("Get number of sessions.");
         Query query = new Query();
         query.setIncludeDocs(false);
         query.setReduce(true);
@@ -105,7 +102,7 @@ public class CouchbasePersistentStore extends StoreBase {
      * {@inheritDoc}
      */
     public String[] keys() throws IOException {
-    	logger.info("Get all keys for sessions");
+    	manager.getContainer().getLogger().debug("Get all keys for sessions");
         Query query = new Query();
         query.setIncludeDocs(false);
         query.setReduce(false);
@@ -124,7 +121,7 @@ public class CouchbasePersistentStore extends StoreBase {
      * {@inheritDoc}
      */
     public Session load(String sessionId) throws ClassNotFoundException, IOException {
-    	logger.info("Get session with id: " + sessionId);
+    	manager.getContainer().getLogger().debug("Get session with id: " + sessionId);
 
     	String res = (String) couchbaseClient.get(sessionId);
     	if (res == null) {
@@ -143,7 +140,7 @@ public class CouchbasePersistentStore extends StoreBase {
      * {@inheritDoc}
      */
     public void remove(String sessionId) throws IOException {
-    	logger.info("Remove session with id: " + sessionId);
+    	manager.getContainer().getLogger().debug("Remove session with id: " + sessionId);
         couchbaseClient.delete(sessionId);
     }
 
@@ -151,7 +148,7 @@ public class CouchbasePersistentStore extends StoreBase {
      * {@inheritDoc}
      */
     public void save(Session session) throws IOException {
-    	logger.info("Save session with id: " + session.getId());
+    	manager.getContainer().getLogger().debug("Save session with id: " + session.getId());
 
     	ByteArrayOutputStream bos = new ByteArrayOutputStream();
         ObjectOutputStream oos = new ObjectOutputStream(new BufferedOutputStream(bos));
@@ -169,7 +166,7 @@ public class CouchbasePersistentStore extends StoreBase {
      */
     @Override
     protected synchronized void startInternal() throws LifecycleException {
-        logger.info("Trying to connect to couchbase bucket " + bucket);
+    	manager.getContainer().getLogger().info("Trying to connect to couchbase bucket " + bucket);
         try {
 			this.couchbaseClient = new CouchbaseClient(uris, bucket, username, password);
 		} catch (IOException e) {
@@ -188,7 +185,7 @@ public class CouchbasePersistentStore extends StoreBase {
      */
     @Override
     protected synchronized void stopInternal() throws LifecycleException {
-    	logger.info("Shutting down.");
+    	manager.getContainer().getLogger().info("Shutting down.");
         super.stopInternal();
         if (couchbaseClient != null) {
             couchbaseClient.shutdown();
@@ -244,9 +241,11 @@ public class CouchbasePersistentStore extends StoreBase {
                     throw new InvalidViewException("Missing view: " + view.getName());
                 }
             }
-            logger.info("All views are already created for bucket " + bucket);
+            manager.getContainer().getLogger().info(
+            		"All views are already created for bucket " + bucket);
         } catch (final InvalidViewException e) {
-            logger.warning("Missing indexes in database for document " + documentName + ", creating new.");
+        	manager.getContainer().getLogger().warn(
+        			"Missing indexes in database for document " + documentName + ", creating new.");
             document = new DesignDocument(documentName);
             for (ViewDesign view : views) {
                 document.getViews().add(view);
