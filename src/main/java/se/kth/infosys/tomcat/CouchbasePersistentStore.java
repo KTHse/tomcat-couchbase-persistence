@@ -1,26 +1,41 @@
 package se.kth.infosys.tomcat;
 
+import java.io.BufferedOutputStream;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.logging.Logger;
 
 import org.apache.catalina.LifecycleException;
 import org.apache.catalina.Session;
+import org.apache.catalina.session.StandardSession;
 import org.apache.catalina.session.StoreBase;
 
+import com.couchbase.client.CouchbaseClient;
+import com.couchbase.client.protocol.views.DesignDocument;
+import com.couchbase.client.protocol.views.InvalidViewException;
 import com.couchbase.client.protocol.views.Query;
 import com.couchbase.client.protocol.views.View;
 import com.couchbase.client.protocol.views.ViewDesign;
 import com.couchbase.client.protocol.views.ViewResponse;
+import com.couchbase.client.protocol.views.ViewRow;
 
 public class CouchbasePersistentStore extends StoreBase {
-    private static final Logger logger =  Logger.getLogger(CouchbaseClientFactory.class.getName());
-    private CouchbaseClientFactory couchbase;
+    private static final Logger logger =  Logger.getLogger(CouchbasePersistentStore.class.getName());
+    
+    /* URIs to use to connect to Couchbase servers. */
+    private CouchbaseClient couchbaseClient;
 
-    private List<URI> uris;
+    /* URIs to use to connect to Couchbase servers. */
+    private List<URI> uris = new ArrayList<URI>();
 
     /* The name of the bucket, will use the default bucket unless otherwise specified. */
     private String bucket = "default";
@@ -35,15 +50,16 @@ public class CouchbasePersistentStore extends StoreBase {
      * {@inheritDoc}
      */
     public String getInfo() {
-        return CouchbaseClientFactory.class.getSimpleName() + "/0.0.0";
+    	return this.getClass().getSimpleName() + "/0.0.0";
     }
 
     /**
      * {@inheritDoc}
      */
     public void clear() throws IOException {
+    	logger.info("Clearing all sessions");
         for (String id : keys()) {
-            couchbase.getClient().delete(id);
+            couchbaseClient.delete(id);
         }
     }
 
@@ -51,48 +67,79 @@ public class CouchbasePersistentStore extends StoreBase {
      * {@inheritDoc}
      */
     public int getSize() throws IOException {
+    	logger.info("Get number of sessions.");
         Query query = new Query();
         query.setIncludeDocs(false);
-        query.setReduce(false);
+        query.setReduce(true);
 
-        View view = couchbase.getClient().getView(UTIL_DOCUMENT, ALL_SESSIONS.getName());
-        ViewResponse response = (ViewResponse) couchbase.getClient().query(view, query);
-        return (int) response.getTotalRows();
+        View view = couchbaseClient.getView(SESSION_DOCUMENT, ALL_SESSIONS.getName());
+        ViewResponse response = (ViewResponse) couchbaseClient.query(view, query);
+        Iterator<ViewRow> iterator = response.iterator();
+        if (iterator.hasNext()) {
+            ViewRow res = response.iterator().next();
+            return Integer.valueOf(res.getValue());
+        } else {
+            return 0;
+        }
     }
 
     /**
      * {@inheritDoc}
      */
     public String[] keys() throws IOException {
+    	logger.info("Get all keys for sessions");
         Query query = new Query();
         query.setIncludeDocs(false);
         query.setReduce(false);
 
-        View view = couchbase.getClient().getView(UTIL_DOCUMENT, ALL_SESSIONS.getName());
-        ViewResponse response = (ViewResponse) couchbase.getClient().query(view, query);
-        Map<String, Object> map = response.getMap();
-        return map.keySet().toArray(new String[map.size()]);
+        View view = couchbaseClient.getView(SESSION_DOCUMENT, ALL_SESSIONS.getName());
+        ViewResponse response = (ViewResponse) couchbaseClient.query(view, query);
+        Iterator<ViewRow> iterator = response.iterator();
+        ArrayList<String> allKeys = new ArrayList<String>();
+        while (iterator.hasNext()) {
+        	allKeys.add(iterator.next().getKey());
+        }
+        return allKeys.toArray(new String[allKeys.size()]);
     }
 
     /**
      * {@inheritDoc}
      */
     public Session load(String sessionId) throws ClassNotFoundException, IOException {
-        return (Session) couchbase.getClient().get(sessionId);
+    	logger.info("Get session with id: " + sessionId);
+
+    	String res = (String) couchbaseClient.get(sessionId);
+    	if (res == null) {
+    		return null;
+    	}
+    	
+    	StandardSession session = (StandardSession) manager.createEmptySession();
+    	InputStream is = new ByteArrayInputStream(res.getBytes());
+    	ObjectInputStream ois = new ObjectInputStream(is);
+    	session.readObjectData(ois);
+    	session.setManager(manager);
+    	return session;
     }
 
     /**
      * {@inheritDoc}
      */
     public void remove(String sessionId) throws IOException {
-        couchbase.getClient().delete(sessionId);
+    	logger.info("Remove session with id: " + sessionId);
+        couchbaseClient.delete(sessionId);
     }
 
     /**
      * {@inheritDoc}
      */
     public void save(Session session) throws IOException {
-        couchbase.getClient().set(session.getId(), session);
+    	logger.info("Save session with id: " + session.getId());
+
+    	ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        ObjectOutputStream oos = new ObjectOutputStream(new BufferedOutputStream(bos));
+        ((StandardSession) session).writeObjectData(oos);
+        oos.close();
+        couchbaseClient.set(session.getId(), bos.toString());
     }
 
     /**
@@ -104,13 +151,13 @@ public class CouchbasePersistentStore extends StoreBase {
      */
     @Override
     protected synchronized void startInternal() throws LifecycleException {
-        this.couchbase = new CouchbaseClientFactory();
-        couchbase.setUris(uris);
-        couchbase.setBucket(bucket);
-        couchbase.setPassword(password);
-        couchbase.setUsername(username);
-        couchbase.ensureIndexes(UTIL_DOCUMENT, ALL_VIEWS);
-        couchbase.initialize();
+        logger.info("Trying to connect to couchbase bucket " + bucket);
+        try {
+			this.couchbaseClient = new CouchbaseClient(uris, bucket, username, password);
+		} catch (IOException e) {
+			throw new LifecycleException(e);
+		}
+        doEnsureIndexes(SESSION_DOCUMENT, ALL_VIEWS);
         super.startInternal();
     }
 
@@ -123,12 +170,10 @@ public class CouchbasePersistentStore extends StoreBase {
      */
     @Override
     protected synchronized void stopInternal() throws LifecycleException {
+    	logger.info("Shutting down.");
         super.stopInternal();
-        try {
-            couchbase.shutdown();
-        } catch (Exception e) {
-            logger.warning("Failed to shutdown couchbase: " + e.getMessage());
-            e.printStackTrace();
+        if (couchbaseClient != null) {
+            couchbaseClient.shutdown();
         }
     }
 
@@ -157,20 +202,80 @@ public class CouchbasePersistentStore extends StoreBase {
      * @param uris the uris to set
      */
     public void setUris(String uriStrings) {
+    	uris.clear();
         for (String uriStr : uriStrings.split(",")) {
             uris.add(URI.create(uriStr.trim()));
         }
     }
 
+
+    /**
+     * Ensures that all views exists in the database.
+     * 
+     * @param documentName the name of the design document.
+     * @param views the views to ensure exists in the database.
+     */
+    private void doEnsureIndexes(final String documentName, final List<ViewDesign> views) {
+        DesignDocument document;
+        try {
+            document = couchbaseClient.getDesignDoc(documentName);
+            List<ViewDesign> oldViews = document.getViews();
+
+            for (ViewDesign view : views) {
+                if (!isViewInList(view, oldViews)) {
+                    throw new InvalidViewException("Missing view: " + view.getName());
+                }
+            }
+            logger.info("All views are already created for bucket " + bucket);
+        } catch (final InvalidViewException e) {
+            logger.warning("Missing indexes in database for document " + documentName + ", creating new.");
+            document = new DesignDocument(documentName);
+            for (ViewDesign view : views) {
+                document.getViews().add(view);
+                if (!couchbaseClient.createDesignDoc(document)) {
+                    throw new InvalidViewException("Failed to create views.");
+                }
+            }
+        }
+    }
+    
+    
+    /**
+     * @param needle the view design to look for
+     * @param stack the list of view designs to look in
+     * @return true if needle exists in stack
+     */
+    private static boolean isViewInList(final ViewDesign needle, final List<ViewDesign> stack) {
+        for (ViewDesign view : stack) {
+            if (equals(needle, view)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+
+    /**
+     * @param d1 a view design.
+     * @param d2 another view design.
+     * @return true if designs are equal.
+     */
+    private static boolean equals(final ViewDesign d1, final ViewDesign d2) {
+        return (d1.getName().equals(d2.getName())
+                && d1.getMap().equals(d2.getMap())
+                && d1.getReduce().equals(d2.getReduce()));
+    }
+
+
     /*
      * Views, or indexes, in the database. 
      */
     private static final ViewDesign ALL_SESSIONS = new ViewDesign(
-            "all_tickets", 
+            "all_sessions", 
             "function(d,m) {emit(m.id);}",
             "_count");
     private static final List<ViewDesign> ALL_VIEWS = Arrays.asList(new ViewDesign[] {
             ALL_SESSIONS
     });
-    private static final String UTIL_DOCUMENT = "sessions";
+    private static final String SESSION_DOCUMENT = "sessions";
 }
