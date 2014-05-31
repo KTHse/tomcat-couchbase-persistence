@@ -1,4 +1,4 @@
-package se.kth.infosys.tomcat;
+package se.kth.infosys.tomcat7;
 
 /*
  * Copyright (C) 2014 KTH, Kungliga tekniska hogskolan, http://www.kth.se
@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.ResourceBundle;
 
 import org.apache.catalina.LifecycleException;
 import org.apache.catalina.Session;
@@ -75,7 +76,10 @@ public class CouchbasePersistentStore extends StoreBase {
      * {@inheritDoc}
      */
     public String getInfo() {
-    	return this.getClass().getSimpleName() + "/0.0.0";
+    	ResourceBundle resourceBundle = ResourceBundle.getBundle("version");
+    	return resourceBundle.getString("artifactId")
+    			+ "/" 
+    			+ resourceBundle.getString("version");
     }
 
 
