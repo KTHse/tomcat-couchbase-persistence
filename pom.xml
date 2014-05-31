@@ -23,7 +23,7 @@
   <groupId>se.kth.infosys</groupId>
   <artifactId>tomcat-couchbase-persistence</artifactId>
   <packaging>jar</packaging>
-  <version>0.0.0-PRE</version>
+  <version>0.1.0</version>
   
   <properties>
     <tomcat-version>7.0.53</tomcat-version>
